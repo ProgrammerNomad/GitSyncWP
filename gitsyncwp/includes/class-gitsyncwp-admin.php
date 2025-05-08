@@ -60,11 +60,57 @@ class GitSyncWP_Admin {
     }
 
     public function render_admin_page() {
+        // Check if settings were just saved
+        if (isset($_GET['settings-updated']) && $_GET['settings-updated'] == 'true') {
+            ?>
+            <div class="notice notice-success is-dismissible">
+                <p><strong>Settings saved successfully!</strong> Your GitHub backup configuration has been updated.</p>
+                <p>
+                    <a href="<?php echo esc_url(admin_url('admin-post.php?action=gitsyncwp_backup')); ?>" class="button button-primary">
+                        Run Backup Now
+                    </a>
+                </p>
+            </div>
+            <?php
+        }
+
         $github_token = get_option('gitsyncwp_github_token', '');
         $github_repo = get_option('gitsyncwp_github_repo', '');
+        $last_backup = get_option('gitsyncwp_last_backup_time', '');
         ?>
         <div class="wrap">
             <h1>GitSyncWP Settings</h1>
+
+            <div class="gitsyncwp-setup-progress">
+                <ul class="setup-steps">
+                    <li class="<?php echo empty($github_token) ? '' : 'completed'; ?>">
+                        <span class="step-number">1</span>
+                        <span class="step-title">GitHub Token</span>
+                    </li>
+                    <li class="<?php echo empty($github_repo) ? '' : 'completed'; ?>">
+                        <span class="step-number">2</span>
+                        <span class="step-title">Repository</span>
+                    </li>
+                    <li class="<?php echo (empty($github_token) || empty($github_repo)) ? '' : 'completed'; ?>">
+                        <span class="step-number">3</span>
+                        <span class="step-title">Ready for Backup</span>
+                    </li>
+                </ul>
+            </div>
+            
+            <?php if (!empty($github_token) && !empty($github_repo)): ?>
+            <div class="notice notice-info is-dismissible">
+                <p>
+                    <strong>Status:</strong> 
+                    <?php if ($last_backup): ?>
+                        Last backup completed on <?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($last_backup))); ?>.
+                    <?php else: ?>
+                        No backups have been performed yet.
+                    <?php endif; ?>
+                    <a href="<?php echo esc_url(admin_url('admin-post.php?action=gitsyncwp_backup')); ?>" class="button button-secondary">Backup Now</a>
+                </p>
+            </div>
+            <?php endif; ?>
             
             <div class="gitsyncwp-settings-container">
                 <form method="post" action="options.php">
@@ -73,13 +119,25 @@ class GitSyncWP_Admin {
                     <!-- GitHub Token -->
                     <div class="gitsyncwp-section">
                         <h2><span class="dashicons dashicons-admin-network"></span> Step 1: Enter GitHub Token</h2>
-                        <input type="password" 
-                               id="gitsyncwp_github_token" 
-                               name="gitsyncwp_github_token" 
-                               value="<?php echo esc_attr($github_token); ?>" 
-                               class="regular-text"
-                               placeholder="Enter your GitHub Personal Access Token"
-                               required>
+                        <div class="input-with-tooltip">
+                            <input type="password" 
+                                   id="gitsyncwp_github_token" 
+                                   name="gitsyncwp_github_token" 
+                                   value="<?php echo esc_attr($github_token); ?>" 
+                                   class="regular-text"
+                                   placeholder="Enter your GitHub Personal Access Token"
+                                   required>
+                            <div class="gitsyncwp-tooltip">
+                                <span class="dashicons dashicons-editor-help"></span>
+                                <span class="tooltip-text">GitHub token with repository access permissions. Create one at GitHub.com.</span>
+                            </div>
+                        </div>
+                        <p class="description">
+                            <a href="<?php echo admin_url('admin.php?page=gitsyncwp-help'); ?>" class="token-help-link">
+                                <span class="dashicons dashicons-info-outline"></span>
+                                Learn how to create a Fine-grained Personal Access Token with proper permissions
+                            </a>
+                        </p>
                     </div>
 
                     <!-- Repository URL -->
@@ -92,6 +150,12 @@ class GitSyncWP_Admin {
                                class="regular-text"
                                placeholder="Enter repository (e.g., username/repo-name)"
                                required>
+                        <p class="description">
+                            <a href="<?php echo admin_url('admin.php?page=gitsyncwp-help'); ?>#repo-setup" class="token-help-link">
+                                <span class="dashicons dashicons-info-outline"></span>
+                                Need help setting up a repository?
+                            </a>
+                        </p>
                     </div>
 
                     <!-- Validate Button -->
@@ -194,8 +258,19 @@ class GitSyncWP_Admin {
             $token = isset($_POST['token']) ? sanitize_text_field($_POST['token']) : '';
             $repo = isset($_POST['repo']) ? sanitize_text_field($_POST['repo']) : '';
 
-            if (empty($token) || empty($repo)) {
-                wp_send_json_error(['message' => 'Token and repository are required']);
+            if (empty($token)) {
+                wp_send_json_error(['message' => 'Please enter a valid GitHub token']);
+                return;
+            }
+            
+            if (empty($repo)) {
+                wp_send_json_error(['message' => 'Please enter a repository name (format: username/repository)']);
+                return;
+            }
+
+            // Validate repository format (username/repository)
+            if (!preg_match('/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/', $repo)) {
+                wp_send_json_error(['message' => 'Invalid repository format. Please use format: username/repository']);
                 return;
             }
 
@@ -214,27 +289,53 @@ class GitSyncWP_Admin {
             );
 
             if (is_wp_error($response)) {
-                wp_send_json_error(['message' => 'Failed to connect to GitHub']);
+                $error_message = $response->get_error_message();
+                wp_send_json_error(['message' => 'Connection error: ' . $error_message]);
                 return;
             }
 
             $response_code = wp_remote_retrieve_response_code($response);
             $response_body = wp_remote_retrieve_body($response);
+            $response_data = json_decode($response_body, true);
 
-            if ($response_code !== 200) {
-                wp_send_json_error(['message' => 'Repository not found or token does not have access']);
+            // Handle different error codes with specific messages
+            if ($response_code === 404) {
+                wp_send_json_error(['message' => 'Repository not found. Please check the repository name.']);
+                return;
+            } else if ($response_code === 401) {
+                wp_send_json_error(['message' => 'Invalid token. The token provided is incorrect or expired.']);
+                return;
+            } else if ($response_code === 403) {
+                $message = 'Access denied. ';
+                if (isset($response_data['message'])) {
+                    if (strpos($response_data['message'], 'rate limit') !== false) {
+                        $message .= 'GitHub API rate limit exceeded. Please try again later.';
+                    } else {
+                        $message .= 'Token does not have permission to access this repository.';
+                    }
+                }
+                wp_send_json_error(['message' => $message]);
+                return;
+            } else if ($response_code !== 200) {
+                $message = isset($response_data['message']) ? $response_data['message'] : 'Unknown error occurred';
+                wp_send_json_error(['message' => 'GitHub API error: ' . $message]);
                 return;
             }
 
-            $repo_data = json_decode($response_body, true);
-            if (!isset($repo_data['permissions']) || !$repo_data['permissions']['push']) {
-                wp_send_json_error(['message' => 'Token does not have write access to the repository']);
+            // Check repository permissions
+            if (!isset($response_data['permissions'])) {
+                wp_send_json_error(['message' => 'Unable to verify repository permissions. Please check your token.']);
                 return;
             }
 
-            wp_send_json_success(['message' => 'Token and repository validated successfully']);
+            if (!$response_data['permissions']['push']) {
+                wp_send_json_error(['message' => 'Token does not have write access to the repository. Please update permissions to include "Contents: Read and write"']);
+                return;
+            }
+
+            wp_send_json_success(['message' => 'Token and repository validated successfully! Repository is ready for backup.']);
         } catch (Exception $e) {
-            wp_send_json_error(['message' => $e->getMessage()]);
+            wp_send_json_error(['message' => 'Error: ' . $e->getMessage()]);
         }
     }
 

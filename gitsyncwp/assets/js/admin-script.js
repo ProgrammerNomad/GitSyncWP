@@ -80,6 +80,31 @@ jQuery(function($) {
             });
         });
 
+        // Add this to the document ready function
+        $('#gitsyncwp_github_token, #gitsyncwp_github_repo').on('input', function() {
+            const field = $(this);
+            const fieldId = field.attr('id');
+            const value = field.val().trim();
+            
+            // Remove any previous feedback
+            field.removeClass('field-error field-valid');
+            field.next('.inline-feedback').remove();
+            
+            // Validate based on field type
+            if (value.length > 0) {
+                if (fieldId === 'gitsyncwp_github_token' && value.length < 30) {
+                    field.addClass('field-error');
+                    field.after('<span class="inline-feedback error">Token appears too short</span>');
+                } else if (fieldId === 'gitsyncwp_github_repo' && !value.includes('/')) {
+                    field.addClass('field-error');
+                    field.after('<span class="inline-feedback error">Format should be username/repository</span>');
+                } else {
+                    field.addClass('field-valid');
+                    field.after('<span class="inline-feedback valid">Looks good!</span>');
+                }
+            }
+        });
+
         // Accordion functionality
         $('.gitsyncwp-accordion-header').on('click', function() {
             const $accordionItem = $(this).closest('.gitsyncwp-accordion-item');

@@ -253,3 +253,114 @@
     color: #646970;
     font-style: italic;
 }
+
+/* Setup Progress Indicator */
+.gitsyncwp-setup-progress {
+    margin: 20px 0 30px;
+}
+
+.setup-steps {
+    display: flex;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-bottom: 1px solid #ccd0d4;
+}
+
+.setup-steps li {
+    flex: 1;
+    padding: 15px 10px;
+    position: relative;
+    text-align: center;
+    opacity: 0.7;
+}
+
+.setup-steps li.completed {
+    opacity: 1;
+}
+
+.setup-steps .step-number {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    border-radius: 50%;
+    background: #ccd0d4;
+    color: #fff;
+    margin-right: 5px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.setup-steps li.completed .step-number {
+    background: #46b450;
+}
+
+.step-title {
+    font-weight: 500;
+}
+
+/* Form validation feedback */
+.field-error {
+    border-color: #dc3232 !important;
+}
+
+.field-valid {
+    border-color: #46b450 !important;
+}
+
+.inline-feedback {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+}
+
+.inline-feedback.error {
+    color: #dc3232;
+}
+
+.inline-feedback.valid {
+    color: #46b450;
+}
+
+/* Tooltips */
+.input-with-tooltip {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.gitsyncwp-tooltip {
+    margin-left: 10px;
+    position: relative;
+    display: inline-block;
+}
+
+.gitsyncwp-tooltip .dashicons {
+    color: #666;
+    cursor: help;
+}
+
+.gitsyncwp-tooltip .tooltip-text {
+    visibility: hidden;
+    width: 250px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 4px;
+    padding: 8px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.gitsyncwp-tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}

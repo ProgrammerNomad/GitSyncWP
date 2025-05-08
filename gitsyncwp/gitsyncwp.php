@@ -5,7 +5,7 @@
  * Version: 1.0.0
  * Author: Shiv Singh
  * License: MIT
- * Requires PHP: 7.3
+ * Requires PHP: 7.4
  */
 
 if (!defined('ABSPATH')) {
@@ -35,6 +35,12 @@ class GitSyncWP_Plugin {
 
         // Add admin scripts
         add_action('admin_enqueue_scripts', [self::class, 'admin_scripts']);
+
+        // Add dashboard widget
+        add_action('wp_dashboard_setup', [self::class, 'add_dashboard_widget']);
+
+        // Add admin notices
+        add_action('admin_notices', [self::class, 'maybe_show_setup_notice']);
     }
 
     /**
@@ -73,6 +79,106 @@ class GitSyncWP_Plugin {
                 ]
             );
         }
+    }
+
+    /**
+     * Add dashboard widget
+     */
+    public static function add_dashboard_widget() {
+        wp_add_dashboard_widget(
+            'gitsyncwp_status_widget',
+            'GitSyncWP Backup Status',
+            [self::class, 'render_dashboard_widget']
+        );
+    }
+
+    /**
+     * Render dashboard widget
+     */
+    public static function render_dashboard_widget() {
+        $github_token = get_option('gitsyncwp_github_token', '');
+        $github_repo = get_option('gitsyncwp_github_repo', '');
+        $last_backup = get_option('gitsyncwp_last_backup_time', '');
+        
+        if (empty($github_token) || empty($github_repo)) {
+            echo '<p>GitSyncWP is not fully configured. <a href="' . 
+                 admin_url('admin.php?page=gitsyncwp') . 
+                 '">Complete setup</a>.</p>';
+            return;
+        }
+        
+        echo '<p><strong>Repository:</strong> ' . esc_html($github_repo) . '</p>';
+        
+        if ($last_backup) {
+            echo '<p><strong>Last backup:</strong> ' . 
+                 esc_html(human_time_diff(strtotime($last_backup), current_time('timestamp'))) . 
+                 ' ago</p>';
+        } else {
+            echo '<p><strong>Status:</strong> No backups performed yet.</p>';
+        }
+        
+        echo '<p><a href="' . admin_url('admin-post.php?action=gitsyncwp_backup') . 
+             '" class="button button-primary">Backup Now</a> ' .
+             '<a href="' . admin_url('admin.php?page=gitsyncwp-logs') . 
+             '" class="button button-secondary">View Logs</a></p>';
+    }
+
+    /**
+     * Maybe show setup notice
+     */
+    public static function maybe_show_setup_notice() {
+        // Only show on admin pages
+        if (!is_admin()) {
+            return;
+        }
+        
+        // Check if already dismissed
+        if (get_option('gitsyncwp_setup_notice_dismissed')) {
+            return;
+        }
+        
+        // Check if already configured
+        $github_token = get_option('gitsyncwp_github_token', '');
+        $github_repo = get_option('gitsyncwp_github_repo', '');
+        
+        if (!empty($github_token) && !empty($github_repo)) {
+            // Already configured, don't show notice
+            update_option('gitsyncwp_setup_notice_dismissed', true);
+            return;
+        }
+        
+        ?>
+        <div class="notice notice-info is-dismissible gitsyncwp-setup-notice">
+            <h3>Welcome to GitSyncWP! 🚀</h3>
+            <p>Backup your WordPress site to GitHub in just a few steps.</p>
+            <p>
+                <a href="<?php echo admin_url('admin.php?page=gitsyncwp'); ?>" class="button button-primary">
+                    Set Up Now
+                </a>
+                <a href="#" class="button button-secondary gitsyncwp-dismiss-notice">
+                    Dismiss
+                </a>
+            </p>
+        </div>
+        <script>
+            jQuery(document).ready(function($) {
+                $('.gitsyncwp-dismiss-notice').on('click', function(e) {
+                    e.preventDefault();
+                    
+                    $.ajax({
+                        url: ajaxurl,
+                        type: 'POST',
+                        data: {
+                            action: 'gitsyncwp_dismiss_setup_notice',
+                            nonce: '<?php echo wp_create_nonce('gitsyncwp_dismiss_notice'); ?>'
+                        }
+                    });
+                    
+                    $(this).closest('.gitsyncwp-setup-notice').remove();
+                });
+            });
+        </script>
+        <?php
     }
 }
 
