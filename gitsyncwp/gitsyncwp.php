@@ -12,6 +12,13 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Add this to your main plugin file
+if (defined('WP_CLI') && WP_CLI) {
+    require_once plugin_dir_path(__FILE__) . 'includes/class-gitsyncwp-cli.php';
+    
+    WP_CLI::add_command('gitsyncwp', 'GitSyncWP_CLI');
+}
+
 class GitSyncWP_Plugin {
     /**
      * @var GitSyncWP_Admin
@@ -41,6 +48,7 @@ class GitSyncWP_Plugin {
 
         // Add admin notices
         add_action('admin_notices', [self::class, 'maybe_show_setup_notice']);
+        add_action('admin_notices', [self::class, 'show_backup_status_notice']);
     }
 
     /**
@@ -179,6 +187,43 @@ class GitSyncWP_Plugin {
             });
         </script>
         <?php
+    }
+
+    /**
+     * Show backup status notice
+     */
+    public static function show_backup_status_notice() {
+        // Only show on our plugin pages
+        $screen = get_current_screen();
+        if (!$screen || strpos($screen->id, 'gitsyncwp') === false) {
+            return;
+        }
+        
+        // Check if we're coming from a backup
+        if (isset($_GET['backup_completed'])) {
+            $status = $_GET['backup_completed'] === 'success' ? 'success' : 'error';
+            $message = ($status === 'success') ? 
+                'Backup completed successfully!' : 
+                'Backup completed with some errors. Check the logs for details.';
+                
+            echo '<div class="notice notice-' . $status . ' is-dismissible"><p>' . $message . '</p></div>';
+        }
+        
+        // Show last backup status
+        $last_backup = get_option('gitsyncwp_last_backup_time', '');
+        if ($last_backup && !isset($_GET['backup_completed'])) {
+            $last_log = get_option('gitsyncwp_last_log', '');
+            $has_errors = strpos($last_log, '❌') !== false;
+            
+            $status_class = $has_errors ? 'warning' : 'info';
+            $status_text = $has_errors ? 'with some errors' : 'successfully';
+            
+            echo '<div class="notice notice-' . $status_class . ' is-dismissible">';
+            echo '<p>Last backup ran ' . human_time_diff(strtotime($last_backup), time()) . ' ago (' . $last_backup . ') ' . $status_text . '.</p>';
+            echo '<p><a href="' . admin_url('admin.php?page=gitsyncwp-logs') . '" class="button button-secondary">View Logs</a> ';
+            echo '<a href="' . admin_url('admin-post.php?action=gitsyncwp_backup') . '" class="button button-primary run-backup-button">Run New Backup</a></p>';
+            echo '</div>';
+        }
     }
 }
 

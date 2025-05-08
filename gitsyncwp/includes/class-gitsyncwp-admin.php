@@ -19,6 +19,7 @@ class GitSyncWP_Admin {
         add_action('admin_post_gitsyncwp_backup', [$this, 'handle_backup']);
         add_action('admin_init', [$this, 'register_settings']);
         add_action('wp_ajax_gitsyncwp_fetch_repositories', [$this, 'fetch_repositories_ajax']);
+        add_action('wp_ajax_gitsyncwp_process_backup_step', [$this, 'process_backup_step_ajax']);
     }
 
     public function register_settings() {
@@ -56,6 +57,16 @@ class GitSyncWP_Admin {
             'manage_options',
             'gitsyncwp-help',
             [$this, 'render_help_page']
+        );
+
+        // Add hidden backup progress page
+        add_submenu_page(
+            null, // No parent menu
+            'Backup Progress',
+            'Backup Progress',
+            'manage_options',
+            'gitsyncwp-backup-progress',
+            [$this, 'render_backup_progress_page']
         );
     }
 
@@ -532,29 +543,237 @@ class GitSyncWP_Admin {
         $github_repo = get_option('gitsyncwp_github_repo');
 
         if (!$github_token || !$github_repo) {
-            wp_die('GitHub settings are not configured');
+            wp_die('GitHub settings are not configured. Please configure your token and repository first.');
         }
 
-        $backup = new GitSyncWP_Backup();
-        $log = $backup->run_backup($github_token, $github_repo);
-
-        // Store the log with timestamp
-        $logs = get_option('gitsyncwp_sync_logs', array());
-        array_unshift($logs, array(
-            'timestamp' => current_time('Y-m-d H:i:s'),
-            'status' => strpos($log, 'Failed') !== false ? 'error' : 'success',
-            'message' => $log
-        ));
-
-        // Keep only last 50 logs
-        if (count($logs) > 50) {
-            array_pop($logs);
-        }
-
-        update_option('gitsyncwp_sync_logs', $logs);
-        update_option('gitsyncwp_last_log', $log);
-
-        wp_redirect(admin_url('admin.php?page=gitsyncwp'));
+        // Initialize backup session
+        $backup_id = 'backup_' . time();
+        update_option('gitsyncwp_current_backup_id', $backup_id);
+        
+        // Prepare initial backup state
+        $backup_state = [
+            'id' => $backup_id,
+            'status' => 'initializing',
+            'started_at' => current_time('mysql'),
+            'completed_at' => '',
+            'current_step' => 'init',
+            'progress' => 0,
+            'total_files' => 0,
+            'processed_files' => 0,
+            'successful_files' => 0,
+            'failed_files' => 0,
+            'log' => "Starting backup process at " . current_time('mysql') . "\n"
+        ];
+        
+        update_option('gitsyncwp_backup_state_' . $backup_id, $backup_state);
+        
+        // Redirect to backup progress page
+        wp_redirect(admin_url('admin.php?page=gitsyncwp-backup-progress&backup_id=' . $backup_id));
         exit;
+    }
+
+    public function render_backup_progress_page() {
+        $backup_id = isset($_GET['backup_id']) ? sanitize_text_field($_GET['backup_id']) : '';
+        if (empty($backup_id)) {
+            wp_redirect(admin_url('admin.php?page=gitsyncwp'));
+            exit;
+        }
+        
+        $backup_state = get_option('gitsyncwp_backup_state_' . $backup_id, []);
+        if (empty($backup_state)) {
+            wp_redirect(admin_url('admin.php?page=gitsyncwp'));
+            exit;
+        }
+        
+        ?>
+        <div class="wrap">
+            <h1>GitSyncWP - Backup Progress</h1>
+            
+            <div class="gitsyncwp-progress-container">
+                <div class="gitsyncwp-progress-bar">
+                    <div class="gitsyncwp-progress-fill" style="width: 0%;">0%</div>
+                </div>
+                
+                <div class="gitsyncwp-progress-details">
+                    <p class="gitsyncwp-progress-status">Initializing backup...</p>
+                    <p class="gitsyncwp-progress-counter">Processed: <span id="processed-count">0</span> / <span id="total-count">0</span></p>
+                </div>
+                
+                <div class="gitsyncwp-progress-log">
+                    <h3>Backup Log</h3>
+                    <pre id="backup-log"></pre>
+                </div>
+            </div>
+        </div>
+        
+        <style>
+            .gitsyncwp-progress-container {
+                max-width: 800px;
+                margin: 20px 0;
+            }
+            
+            .gitsyncwp-progress-bar {
+                height: 30px;
+                background-color: #f0f0f0;
+                border-radius: 3px;
+                padding: 0;
+                margin: 20px 0;
+                overflow: hidden;
+            }
+            
+            .gitsyncwp-progress-fill {
+                height: 100%;
+                background-color: #0073aa;
+                color: white;
+                text-align: center;
+                line-height: 30px;
+                transition: width 0.5s;
+            }
+            
+            .gitsyncwp-progress-log {
+                max-height: 300px;
+                overflow-y: auto;
+                background: #f8f8f8;
+                padding: 10px;
+                border: 1px solid #ddd;
+                margin-top: 20px;
+            }
+            
+            .gitsyncwp-progress-log pre {
+                margin: 0;
+                white-space: pre-wrap;
+                font-family: monospace;
+                font-size: 12px;
+            }
+        </style>
+        
+        <script>
+        jQuery(document).ready(function($) {
+            var backup_id = '<?php echo $backup_id; ?>';
+            var processStep = function() {
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'gitsyncwp_process_backup_step',
+                        backup_id: backup_id,
+                        nonce: gitsyncwpAjax.nonce
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            updateProgress(response.data);
+                            
+                            if (response.data.status === 'completed' || response.data.status === 'failed') {
+                                finishBackup(response.data);
+                            } else {
+                                // Continue with next step
+                                setTimeout(processStep, 1000);
+                            }
+                        } else {
+                            // Handle error
+                            $('#backup-log').prepend("Error: " + (response.data.message || "Unknown error") + "\n");
+                            finishBackup({status: 'failed'});
+                        }
+                    },
+                    error: function() {
+                        $('#backup-log').prepend("Connection error. Retrying...\n");
+                        // Retry after delay
+                        setTimeout(processStep, 5000);
+                    }
+                });
+            };
+            
+            var updateProgress = function(data) {
+                var progress = data.progress || 0;
+                $('.gitsyncwp-progress-fill').css('width', progress + '%').text(progress + '%');
+                
+                $('.gitsyncwp-progress-status').text(getStatusText(data.current_step, data.status));
+                $('#processed-count').text(data.processed_files);
+                $('#total-count').text(data.total_files);
+                
+                if (data.log) {
+                    $('#backup-log').html(data.log);
+                }
+            };
+            
+            var getStatusText = function(step, status) {
+                if (status === 'failed') return 'Backup failed';
+                if (status === 'completed') return 'Backup completed successfully';
+                
+                switch(step) {
+                    case 'init': return 'Initializing backup...';
+                    case 'database': return 'Backing up database...';
+                    case 'files_scan': return 'Scanning files...';
+                    case 'files_backup': return 'Backing up files...';
+                    default: return 'Processing backup...';
+                }
+            };
+            
+            var finishBackup = function(data) {
+                if (data.status === 'completed') {
+                    $('.gitsyncwp-progress-status').html('<span style="color: #46b450;">✓ Backup completed successfully!</span>');
+                } else {
+                    $('.gitsyncwp-progress-status').html('<span style="color: #dc3232;">✗ Backup failed. See log for details.</span>');
+                }
+                
+                // Add a link to view logs
+                $('.gitsyncwp-progress-details').append('<p><a href="<?php echo admin_url('admin.php?page=gitsyncwp-logs'); ?>" class="button button-primary">View All Logs</a></p>');
+            };
+            
+            // Start the process
+            processStep();
+        });
+        </script>
+        <?php
+    }
+
+    // Make sure this function is registered to handle the WordPress AJAX action
+    public function process_backup_step_ajax() {
+        try {
+            check_ajax_referer('gitsyncwp_ajax_nonce', 'nonce');
+            
+            if (!current_user_can('manage_options')) {
+                wp_send_json_error(['message' => 'Unauthorized access']);
+                return;
+            }
+            
+            $backup_id = isset($_POST['backup_id']) ? sanitize_text_field($_POST['backup_id']) : '';
+            if (empty($backup_id)) {
+                wp_send_json_error(['message' => 'Invalid backup ID']);
+                return;
+            }
+            
+            $state = get_option('gitsyncwp_backup_state_' . $backup_id, []);
+            if (empty($state)) {
+                wp_send_json_error(['message' => 'Backup state not found']);
+                return;
+            }
+
+            // Set a higher per-request time limit
+            @set_time_limit(120);
+            
+            // Process the next step based on current state
+            $backup = new GitSyncWP_Backup();
+            
+            // Add debugging information
+            error_log('GitSyncWP: Processing backup step: ' . $state['current_step'] . ' - Progress: ' . $state['progress'] . '%');
+            
+            // Process step with a smaller chunk size to prevent timeouts
+            if ($state['current_step'] === 'files_backup' && isset($state['file_chunk_size'])) {
+                // Reduce chunk size for better reliability
+                $state['file_chunk_size'] = 5;
+            }
+            
+            $state = $backup->process_step($state);
+            
+            // Save updated state
+            update_option('gitsyncwp_backup_state_' . $backup_id, $state);
+            
+            // Return current state to the client
+            wp_send_json_success($state);
+        } catch (Exception $e) {
+            error_log('GitSyncWP backup error: ' . $e->getMessage());
+            wp_send_json_error(['message' => $e->getMessage()]);
+        }
     }
 }

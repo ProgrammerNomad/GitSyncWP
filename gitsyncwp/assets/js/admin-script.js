@@ -118,5 +118,20 @@ jQuery(function($) {
             $accordionItem.siblings('.gitsyncwp-accordion-item').removeClass('active')
                 .find('.gitsyncwp-accordion-content').slideUp();
         });
+
+        // Add this code at the end of the document ready function
+        $('.run-backup-button').on('click', function(e) {
+            if (!confirm('Are you sure you want to run a backup now? This may take several minutes.')) {
+                e.preventDefault();
+                return false;
+            }
+            
+            // Show loading indicator
+            $(this).prop('disabled', true).html('<span class="dashicons dashicons-update spinning"></span> Backup in progress...');
+            return true;
+        });
+
+        // Add class to make dashicon spin
+        $('<style>.spinning { animation: spin 2s linear infinite; } @keyframes spin { 100% { transform: rotate(360deg); } }</style>').appendTo('head');
     });
 });
