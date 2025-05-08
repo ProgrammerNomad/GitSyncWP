@@ -11,9 +11,9 @@ if (!defined('ABSPATH')) {
 }
 
 class GitSyncWP_Backup {
-    public function run_backup() {
+    public function run_backup($github_token, $github_repo) {
         $db_file = $this->backup_database();
-        $github = new GitSyncWP_GitHub('your_github_token', 'your_username/your_repo');
+        $github = new GitSyncWP_GitHub($github_token, $github_repo);
 
         $log = "Starting backup...\n";
 

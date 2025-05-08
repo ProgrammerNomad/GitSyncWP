@@ -1,0 +1,369 @@
+.gitsyncwp-logs-table {
+    margin-top: 20px;
+}
+
+.status-success {
+    color: #46b450;
+    font-weight: bold;
+}
+
+.status-error {
+    color: #dc3232;
+    font-weight: bold;
+}
+
+.status-warning {
+    color: #ffb900;
+    font-weight: bold;
+}
+
+.log-timestamp {
+    color: #666;
+    font-size: 13px;
+}
+
+.log-details {
+    font-family: monospace;
+    white-space: pre-wrap;
+    background: #f8f8f8;
+    padding: 10px;
+    border-radius: 3px;
+}
+
+/* Help Page Styles */
+.gitsyncwp-help-wrap {
+    max-width: 900px;
+    margin: 20px 0;
+}
+
+.gitsyncwp-accordion {
+    margin: 20px 0;
+}
+
+.gitsyncwp-accordion-item {
+    border: 1px solid #ccd0d4;
+    margin-bottom: 10px;
+    background: #fff;
+}
+
+.gitsyncwp-accordion-header {
+    width: 100%;
+    border: none;
+    background: #f8f9fa;
+    padding: 15px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.gitsyncwp-accordion-header:hover {
+    background: #f0f0f1;
+}
+
+.gitsyncwp-accordion-content {
+    display: none;
+    padding: 20px;
+    border-top: 1px solid #ccd0d4;
+}
+
+.gitsyncwp-accordion-content.active {
+    display: block;
+}
+
+.gitsyncwp-accordion-content h3 {
+    margin-top: 0;
+}
+
+.gitsyncwp-accordion-content ol,
+.gitsyncwp-accordion-content ul {
+    margin-left: 20px;
+}
+
+.gitsyncwp-accordion-content .notice {
+    margin: 15px 0;
+}
+
+/* Definition List Styles */
+.gitsyncwp-accordion-content dl {
+    margin: 0;
+}
+
+.gitsyncwp-accordion-content dt {
+    font-weight: 600;
+    margin-top: 15px;
+}
+
+.gitsyncwp-accordion-content dd {
+    margin-left: 20px;
+    margin-bottom: 15px;
+}
+
+/* Settings Page Layout */
+.gitsyncwp-settings-container {
+    max-width: 800px;
+    margin: 20px 0;
+}
+
+.gitsyncwp-section {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.gitsyncwp-section h2 {
+    margin-top: 0;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #eee;
+    font-size: 1.3em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Token Input Group */
+.gitsyncwp-token-container {
+    margin: 15px 0;
+}
+
+.gitsyncwp-input-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.gitsyncwp-input-group input {
+    flex: 1;
+}
+
+#fetch-repos {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* Repository Selection */
+.gitsyncwp-repo-container {
+    position: relative;
+}
+
+.gitsyncwp-repo-container select {
+    width: 100%;
+    max-width: 100%;
+}
+
+/* Token Help Link */
+.token-help-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    text-decoration: none;
+    color: #0073aa;
+}
+
+.token-help-link:hover {
+    color: #00a0d2;
+}
+
+/* Backup Section */
+.backup-section {
+    background: #f8f9fa;
+}
+
+.backup-container {
+    text-align: center;
+    padding: 20px 0;
+}
+
+/* Sync Log */
+.sync-log-container {
+    background: #f8f9fa;
+    border: 1px solid #e5e5e5;
+    border-radius: 3px;
+    padding: 15px;
+}
+
+.sync-log-container pre {
+    margin: 0;
+    white-space: pre-wrap;
+    font-family: monospace;
+}
+
+/* Loading State */
+#repo-loading {
+    margin-top: 10px;
+    color: #666;
+}
+
+/* Responsive Design */
+@media screen and (max-width: 782px) {
+    .gitsyncwp-input-group {
+        flex-direction: column;
+    }
+    
+    .gitsyncwp-input-group input,
+    .gitsyncwp-input-group button {
+        width: 100%;
+    }
+}
+
+/* Select2 Custom Styles */
+.select2-repo-result {
+    padding: 8px;
+    line-height: 1.4;
+}
+
+.select2-repo-title {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.repo-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    line-height: 1;
+    margin-right: 4px;
+}
+
+.repo-owner {
+    color: #666;
+}
+
+.repo-separator {
+    color: #999;
+}
+
+.repo-name {
+    font-weight: bold;
+    color: #000;
+}
+
+.select2-repo-description {
+    color: #666;
+    font-size: 13px;
+    margin-bottom: 4px;
+    padding-left: 24px;
+}
+
+.select2-repo-meta {
+    color: #888;
+    font-size: 12px;
+    padding-left: 24px;
+}
+
+/* Select2 Dropdown Improvements */
+.select2-container--default .select2-results > .select2-results__options {
+    max-height: 400px;
+}
+
+.select2-container--default .select2-search--dropdown .select2-search__field {
+    padding: 8px;
+    font-size: 14px;
+}
+
+.select2-container--default .select2-results__option {
+    padding: 4px 8px;
+}
+
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background-color: #0073aa;
+}
+
+/* Selected Value Styling */
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-left: 12px;
+}
+
+.select2-container--default .select2-selection--single {
+    height: 36px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 34px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 34px;
+}
+
+.select2-container .select2-selection--single {
+    height: 32px;
+}
+
+.select2-container--default .select2-selection--single {
+    border-color: #ddd;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 32px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 30px;
+}
+
+/* Dark mode support */
+.admin-color-dark .select2-dropdown {
+    background-color: #23282d;
+    color: #bbc8d4;
+}
+
+.admin-color-dark .select2-container--default .select2-results__option[aria-selected=true] {
+    background-color: #32373c;
+}
+
+.admin-color-dark .select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background-color: #0073aa;
+}
+
+/* Token Feedback Styles */
+#token-feedback {
+    margin: 10px 0;
+    padding: 8px 12px;
+    border-left-width: 4px;
+}
+
+#token-feedback p {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#token-feedback.notice-error {
+    border-left-color: #dc3232;
+    background: #fbeaea;
+}
+
+#token-feedback.notice-success {
+    border-left-color: #46b450;
+    background: #ecf7ed;
+}
+
+#token-feedback .dashicons-warning {
+    color: #dc3232;
+}
+
+#token-feedback .dashicons-yes {
+    color: #46b450;
+}
+
+/* Token Feedback Description */
+#token-feedback .description {
+    margin-top: 5px;
+    font-size: 13px;
+    color: #646970;
+    font-style: italic;
+}
