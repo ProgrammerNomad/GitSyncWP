@@ -66,97 +66,48 @@ class GitSyncWP_Admin {
         <div class="wrap">
             <h1>GitSyncWP Settings</h1>
             
-            <!-- GitHub Settings Form -->
             <div class="gitsyncwp-settings-container">
                 <form method="post" action="options.php">
                     <?php settings_fields('gitsyncwp_settings'); ?>
                     
-                    <!-- Step 1: GitHub Token -->
+                    <!-- GitHub Token -->
                     <div class="gitsyncwp-section">
-                        <h2><span class="dashicons dashicons-admin-network"></span> Step 1: Connect to GitHub</h2>
-                        <div class="gitsyncwp-token-container">
-                            <div class="gitsyncwp-input-group">
-                                <input type="password" 
-                                       id="gitsyncwp_github_token" 
-                                       name="gitsyncwp_github_token" 
-                                       value="<?php echo esc_attr($github_token); ?>" 
-                                       class="regular-text"
-                                       placeholder="Enter your GitHub Personal Access Token"
-                                       required>
-                                <button type="button" id="fetch-repos" class="button button-secondary">
-                                    <span class="dashicons dashicons-update"></span> Validate & Fetch Repos
-                                </button>
-                            </div>
-                            <!-- Add token feedback container -->
-                            <div id="token-feedback" class="notice" style="display: none;"></div>
-                            <p class="description">
-                                <a href="<?php echo admin_url('admin.php?page=gitsyncwp-help'); ?>" class="token-help-link">
-                                    <span class="dashicons dashicons-info"></span> How to generate a token?
-                                </a>
-                            </p>
-                        </div>
+                        <h2><span class="dashicons dashicons-admin-network"></span> Step 1: Enter GitHub Token</h2>
+                        <input type="password" 
+                               id="gitsyncwp_github_token" 
+                               name="gitsyncwp_github_token" 
+                               value="<?php echo esc_attr($github_token); ?>" 
+                               class="regular-text"
+                               placeholder="Enter your GitHub Personal Access Token"
+                               required>
                     </div>
 
-                    <!-- Step 2: Repository Selection -->
+                    <!-- Repository URL -->
                     <div class="gitsyncwp-section">
-                        <h2><span class="dashicons dashicons-portfolio"></span> Step 2: Select Repository</h2>
-                        <div class="gitsyncwp-repo-container">
-                            <select id="gitsyncwp_github_repo" 
-                                    name="gitsyncwp_github_repo" 
-                                    class="regular-text select2-repo" 
-                                    required>
-                                <option value="">Select a repository</option>
-                                <?php if ($github_token): ?>
-                                    <?php $repositories = $this->get_github_repositories($github_token); ?>
-                                    <?php foreach ($repositories as $repo): ?>
-                                        <?php 
-                                            $icon = $repo['private'] ? '🔒' : '🌐';
-                                            $description = isset($repo['description']) ? $repo['description'] : '';
-                                            $updated_at = isset($repo['updated_at']) ? date('Y-m-d', strtotime($repo['updated_at'])) : '';
-                                        ?>
-                                        <option value="<?php echo esc_attr($repo['full_name']); ?>" 
-                                                data-description="<?php echo esc_attr($description); ?>"
-                                                data-updated="<?php echo esc_attr($updated_at); ?>"
-                                                data-private="<?php echo $repo['private'] ? '1' : '0'; ?>"
-                                                <?php selected($github_repo, $repo['full_name']); ?>>
-                                            <?php echo esc_html($repo['full_name']); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </select>
-                            <div id="repo-loading" style="display: none;">
-                                <span class="spinner is-active"></span> Loading repositories...
-                            </div>
-                        </div>
+                        <h2><span class="dashicons dashicons-portfolio"></span> Step 2: Enter Repository URL</h2>
+                        <input type="text" 
+                               id="gitsyncwp_github_repo" 
+                               name="gitsyncwp_github_repo" 
+                               value="<?php echo esc_attr($github_repo); ?>" 
+                               class="regular-text"
+                               placeholder="Enter repository (e.g., username/repo-name)"
+                               required>
                     </div>
 
-                    <!-- Save Settings Button -->
+                    <!-- Validate Button -->
+                    <div class="gitsyncwp-section">
+                        <button type="button" id="validate-repo" class="button button-primary">
+                            <span class="dashicons dashicons-yes"></span> Validate
+                        </button>
+                        <div id="validation-feedback" class="notice" style="display: none;"></div>
+                    </div>
+
+                    <!-- Save Settings -->
                     <div class="gitsyncwp-section">
                         <?php submit_button('Save Settings', 'primary', 'submit', false); ?>
                     </div>
                 </form>
             </div>
-
-            <!-- Backup Control (only shown after setup) -->
-            <?php if ($github_token && $github_repo): ?>
-                <div class="gitsyncwp-section backup-section">
-                    <h2><span class="dashicons dashicons-backup"></span> Backup Control</h2>
-                    <div class="backup-container">
-                        <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
-                            <input type="hidden" name="action" value="gitsyncwp_backup">
-                            <?php submit_button('Start Backup Now', 'primary large', 'backup-button', false); ?>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Last Sync Status -->
-                <div class="gitsyncwp-section">
-                    <h2><span class="dashicons dashicons-clock"></span> Last Sync Status</h2>
-                    <div class="sync-log-container">
-                        <pre><?php echo esc_html(get_option('gitsyncwp_last_log', 'No syncs yet.')); ?></pre>
-                    </div>
-                </div>
-            <?php endif; ?>
         </div>
         <?php
     }
@@ -172,72 +123,59 @@ class GitSyncWP_Admin {
             return [];
         }
 
-        // First, try to get installation access repositories (fine-grained token)
-        $api_url = 'https://api.github.com/installation/repositories';
+        // Check if a specific repository is selected
+        $selected_repo = isset($_POST['selected_repo']) ? sanitize_text_field($_POST['selected_repo']) : '';
+        if (!empty($selected_repo)) {
+            $api_url = 'https://api.github.com/repos/' . $selected_repo;
+            $response = wp_remote_get(
+                $api_url,
+                [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $token,
+                        'Accept' => 'application/vnd.github.v3+json',
+                        'User-Agent' => 'GitSyncWP',
+                        'Cache-Control' => 'no-cache'
+                    ],
+                    'timeout' => 15
+                ]
+            );
+
+            if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+                $repo = json_decode(wp_remote_retrieve_body($response), true);
+
+                // Check if the token has write access to the repository
+                if (isset($repo['permissions']) && ($repo['permissions']['push'] || $repo['permissions']['admin'])) {
+                    return [$repo];
+                }
+            }
+        }
+
+        // If no specific repository is selected, fetch all accessible repositories
+        $api_url = 'https://api.github.com/user/repos';
         $response = wp_remote_get(
             $api_url,
             [
                 'headers' => [
-                    'Authorization' => sprintf('Bearer %s', $token),
+                    'Authorization' => 'Bearer ' . $token,
                     'Accept' => 'application/vnd.github.v3+json',
                     'User-Agent' => 'GitSyncWP',
-                    // Prevent caching
-                    'Cache-Control' => 'no-cache',
-                    'Pragma' => 'no-cache'
+                    'Cache-Control' => 'no-cache'
                 ],
                 'timeout' => 15
             ]
         );
 
-        // If installation access fails, try listing accessible repositories
-        if (wp_remote_retrieve_response_code($response) !== 200) {
-            $api_url = 'https://api.github.com/user/repos';
-            $args = [
-                'per_page' => 100,
-                'sort' => 'full_name',
-                'visibility' => 'all',
-                // Add timestamp to prevent caching
-                '_nocache' => time()
-            ];
-            
-            $response = wp_remote_get(
-                add_query_arg($args, $api_url),
-                [
-                    'headers' => [
-                        'Authorization' => sprintf('Bearer %s', $token),
-                        'Accept' => 'application/vnd.github.v3+json',
-                        'User-Agent' => 'GitSyncWP',
-                        // Prevent caching
-                        'Cache-Control' => 'no-cache',
-                        'Pragma' => 'no-cache'
-                    ],
-                    'timeout' => 15
-                ]
-            );
-        }
-
         if (is_wp_error($response)) {
             return [];
         }
 
-        $response_code = wp_remote_retrieve_response_code($response);
-        if ($response_code !== 200) {
-            return [];
-        }
+        $repos = json_decode(wp_remote_retrieve_body($response), true);
 
-        $body = wp_remote_retrieve_body($response);
-        $repos = json_decode($body, true);
-
-        // For installation access, repositories are nested
-        if (isset($repos['repositories'])) {
-            $repos = $repos['repositories'];
-        }
-
-        // Filter repositories to only those with admin/push access
+        // Filter repositories with push access
         return array_filter($repos, function($repo) {
             return isset($repo['permissions']) && 
-                   ($repo['permissions']['admin'] === true || 
-                    $repo['permissions']['push'] === true);
+                   ($repo['permissions']['push'] === true || 
+                    $repo['permissions']['admin'] === true);
         });
     }
 
@@ -247,27 +185,54 @@ class GitSyncWP_Admin {
     public function fetch_repositories_ajax() {
         try {
             check_ajax_referer('gitsyncwp_ajax_nonce', 'nonce');
-            
+
             if (!current_user_can('manage_options')) {
                 wp_send_json_error(['message' => 'Unauthorized access']);
                 return;
             }
 
             $token = isset($_POST['token']) ? sanitize_text_field($_POST['token']) : '';
-            if (empty($token)) {
-                wp_send_json_error(['message' => 'Token is required']);
+            $repo = isset($_POST['repo']) ? sanitize_text_field($_POST['repo']) : '';
+
+            if (empty($token) || empty($repo)) {
+                wp_send_json_error(['message' => 'Token and repository are required']);
                 return;
             }
 
-            $repositories = $this->get_github_repositories($token);
-            
-            if (empty($repositories)) {
-                wp_send_json_error(['message' => 'No repositories found or invalid token']);
+            $api_url = 'https://api.github.com/repos/' . $repo;
+            $response = wp_remote_get(
+                $api_url,
+                [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $token,
+                        'Accept' => 'application/vnd.github+json',
+                        'User-Agent' => 'GitSyncWP',
+                        'Cache-Control' => 'no-cache'
+                    ],
+                    'timeout' => 15
+                ]
+            );
+
+            if (is_wp_error($response)) {
+                wp_send_json_error(['message' => 'Failed to connect to GitHub']);
                 return;
             }
 
-            wp_send_json_success($repositories);
+            $response_code = wp_remote_retrieve_response_code($response);
+            $response_body = wp_remote_retrieve_body($response);
 
+            if ($response_code !== 200) {
+                wp_send_json_error(['message' => 'Repository not found or token does not have access']);
+                return;
+            }
+
+            $repo_data = json_decode($response_body, true);
+            if (!isset($repo_data['permissions']) || !$repo_data['permissions']['push']) {
+                wp_send_json_error(['message' => 'Token does not have write access to the repository']);
+                return;
+            }
+
+            wp_send_json_success(['message' => 'Token and repository validated successfully']);
         } catch (Exception $e) {
             wp_send_json_error(['message' => $e->getMessage()]);
         }

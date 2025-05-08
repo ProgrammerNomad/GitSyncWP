@@ -45,36 +45,20 @@ class GitSyncWP_Plugin {
         if (strpos($hook, 'gitsyncwp') !== false) {
             // Ensure jQuery is a dependency
             wp_enqueue_script('jquery');
-            
-            // Enqueue Select2
-            wp_enqueue_style(
-                'select2',
-                'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css',
-                [],
-                '4.1.0'
-            );
-            
-            wp_enqueue_script(
-                'select2',
-                'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js',
-                ['jquery'],  // Make sure jQuery is a dependency
-                '4.1.0',
-                true
-            );
 
             // Plugin styles
             wp_enqueue_style(
                 'gitsyncwp-admin-style',
                 plugins_url('assets/css/admin-style.css', __FILE__),
-                ['select2'],  // Make Select2 CSS a dependency
+                [],
                 '1.0.0'
             );
-            
+
             // Plugin scripts
             wp_enqueue_script(
                 'gitsyncwp-admin-script',
                 plugins_url('assets/js/admin-script.js', __FILE__),
-                ['jquery', 'select2'],  // Make both jQuery and Select2 dependencies
+                ['jquery'],  // Only jQuery as a dependency
                 '1.0.0',
                 true
             );
